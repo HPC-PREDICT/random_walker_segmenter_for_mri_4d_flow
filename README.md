@@ -16,6 +16,7 @@
 ==========================================================
 <br />Tested with Python 3.6.6
 <br />Required extensions: mayavi, tkinter, PIL, pyamg
+
 =========================================================
 <br />Brief file descriptions:
 <br />random_walker_gui.py (defines the GUI and specifies the high level processing pipeline) (Main file to run).
