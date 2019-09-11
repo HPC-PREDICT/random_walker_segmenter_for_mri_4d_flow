@@ -1,14 +1,18 @@
 # Interactive segmentation tool for 4D flow MRIs
 
 ==========================================================
+
 <br />Main Author: Nicolas Blondel (n.blondel@me.com)
 <br />Edited by: Neerav Karani (nkarani@vision.ee.ethz.ch)
 <br />Institute: Computer Vision Lab, ETH Zürich
 <br />Created: 29.07.2019
 <br />Last updated: 11.09.2019
+
 ==========================================================
+
 <br />Random Walker Based 4D Flow MRI Segmentation Tool
 <br />Version 0.0.1
+
 ==========================================================
 <br />Tested with Python 3.6.6
 <br />Required extensions: mayavi, tkinter, PIL, pyamg
