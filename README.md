@@ -1,4 +1,4 @@
-# random_walker_segmenter_for_mri_4d_flow
+# Interactive segmentation tool for 4D flow MRIs
 
 ==========================================================
 
@@ -10,27 +10,27 @@
 
 ==========================================================
 
-Random Walker Based 4D Flow MRI Segmentation Tool
-Version 0.0.1
+<br />Random Walker Based 4D Flow MRI Segmentation Tool
+<br />Version 0.0.1
 
 ==========================================================
 
-Created and tested with Python 3.6.6
-Required extensions: mayavi, tkinter, PIL, pyamg
+<br />Tested with Python 3.6.6
+<br />Required extensions: mayavi, tkinter, PIL, pyamg
 
 ==========================================================
 
-Brief file descriptions:
-random_walker_gui.py (defines the GUI and specifies the high level processing pipeline) (Main file to run).
-misc.py (defines helper functions such as data read functionsm normalization, etc.)
-random_walker_3D.py (extends the random walker algorithm from skimage with a similarity metric that takes into account intensities as well blood flow similarity.)
-random_walker_4D.py (same as random_walker_3D, but defines similarities in 4D.)
+<br />Brief file descriptions:
+<br />random_walker_gui.py (defines the GUI and specifies the high level processing pipeline) (Main file to run).
+<br />misc.py (defines helper functions such as data read functionsm normalization, etc.)
+<br />random_walker_3D.py (extends the random walker algorithm from skimage with a similarity metric that takes into account intensities as well blood flow similarity.)
+<br />random_walker_4D.py (same as random_walker_3D, but defines similarities in 4D.)
 
 ==========================================================
 
 Data paths are set as follows:
-The code is stored in this directory: basepath + '/code/random_walker/'
-The data is stored in this directory: basepath + '/data/data_source/'
+<br />The code is stored in this directory: basepath + '/code/random_walker/'
+<br />The data is stored in this directory: basepath + '/data/data_source/'
 
 ==========================================================
 
