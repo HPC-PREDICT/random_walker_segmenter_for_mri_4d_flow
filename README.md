@@ -1,7 +1,6 @@
 # Interactive segmentation tool for 4D flow MRIs
 
 ==========================================================
-
 <br />Main Author: Nicolas Blondel (n.blondel@me.com)
 <br />Edited by: Neerav Karani (nkarani@vision.ee.ethz.ch)
 <br />Institute: Computer Vision Lab, ETH Zürich
@@ -9,7 +8,6 @@
 <br />Last updated: 11.09.2019
 
 ==========================================================
-
 <br />Random Walker Based 4D Flow MRI Segmentation Tool
 <br />Version 0.0.1
 
@@ -23,10 +21,12 @@
 <br />misc.py (defines helper functions such as data read functionsm normalization, etc.)
 <br />random_walker_3D.py (extends the random walker algorithm from skimage with a similarity metric that takes into account intensities as well blood flow similarity.)
 <br />random_walker_4D.py (same as random_walker_3D, but defines similarities in 4D.)
+
 ==========================================================
 <br />Data paths are set as follows:
 <br />The code is stored in this directory: basepath + '/code/random_walker/'
 <br />The data is stored in this directory: basepath + '/data/data_source/'
+
 ==========================================================
 <br />Workflow:
 <br />1) Cycle through display modes ("Vel. Magnitude"-Button) to see the image with the velocity magnitude.
@@ -44,4 +44,5 @@
 <br />12) Press "Save segmentation" to save the 4D segmentation.
 <br />13) Done.
 <br />To reset and rerun the RW simply press "Quit" and restart the program.
+
 ==========================================================
