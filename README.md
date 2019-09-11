@@ -2,11 +2,11 @@
 
 ==========================================================
 
-Main Author: Nicolas Blondel (n.blondel@me.com)
-Edited by: Neerav Karani (nkarani@vision.ee.ethz.ch)
-Institute: Computer Vision Lab, ETH Zürich
-Created: 29.07.2019
-Last updated: 11.09.2019
+<br />Main Author: Nicolas Blondel (n.blondel@me.com)
+<br />Edited by: Neerav Karani (nkarani@vision.ee.ethz.ch)
+<br />Institute: Computer Vision Lab, ETH Zürich
+<br />Created: 29.07.2019
+<br />Last updated: 11.09.2019
 
 ==========================================================
 
