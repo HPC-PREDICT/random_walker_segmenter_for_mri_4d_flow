@@ -18,14 +18,14 @@
 =========================================================
 <br />Brief file descriptions:
 <br />random_walker_gui.py (defines the GUI and specifies the high level processing pipeline) (Main file to run).
-<br />misc.py (defines helper functions such as data read functionsm normalization, etc.)
+<br />misc.py (defines helper functions such as data read functions, image normalization, etc.)
 <br />random_walker_3D.py (extends the random walker algorithm from skimage with a similarity metric that takes into account intensities as well blood flow similarity.)
 <br />random_walker_4D.py (same as random_walker_3D, but defines similarities in 4D.)
 
 ==========================================================
 <br />Data paths are set as follows:
-<br />The code is stored in this directory: basepath + '/code/random_walker/'
-<br />The data is stored in this directory: basepath + '/data/data_source/'
+<br />The code is stored in this directory: basepath + '/code/segmenter_random_walker/'
+<br />The data is stored in this directory: basepath + '/data/<data_source>/'
 
 ==========================================================
 <br />Workflow:
