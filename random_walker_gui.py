@@ -12,23 +12,37 @@ import random_walker_3D as rw3D
 
 import tkinter as tk
 
+import argparse
+
+# Parse data input and output directories
+def parse_args():
+    # Parse arguments
+    parser = argparse.ArgumentParser(description='Run random walker flow segmenter.')
+    parser.add_argument('--mri-path', type=str, default='../data/MRT Daten Bern Numpy/14/10002CA3/10002CA4/' ,#default='../../data/freiburg/',
+                    help='Directory containing MRI data set')
+    parser.add_argument('--subject-name', type=str, default='0', #default='AH',
+                    help='Name of the subject to segment')
+    return parser.parse_args()
+
+args = parse_args()
+
 # ==========================================
 # 4D Random Walker Segmentation Tool for 4D MRI Flow Images
 # ==========================================
 class RandomWalkerFlowSegmenter():
-    
-    # =============================    
+
+    # =============================
     # set subject name to be loaded
     # For the ETH dataset: 'AH', 'CB', 'DG', 'JR', 'LT' (with quotes)
     # For the Freiburg dataset 0, 1, .... 141 (without quotes)
     # =============================
-    subject_name = 'AH'
-    
+    subject_name = args.subject_name  #'AH'
+
     # =============================
     # list of subjects in the eth dataset
     # =============================
     subjects_eth_dataset = ['AH', 'CB', 'DG', 'JR', 'LT']
-    
+
     # =============================
     # parec data contains the arrays with m,p and s (velocity components) as well as ints with the number of timesteps and number of slices
     # load parec datsa using custom function in pl (see imports)
@@ -74,8 +88,9 @@ class RandomWalkerFlowSegmenter():
         img_slice =round(z_size/2)
         
     else:
-        
-        separated_arrays = misc.load_npy_data(subject_name)
+        subject_name = int(subject_name)
+
+        separated_arrays = misc.load_npy_data(args.mri_path, subject_name) # freiburg_mri_path='../../data/freiburg/'
         separated_arrays = misc.normalize_arrays(separated_arrays)
         
         # =============================        
@@ -155,7 +170,7 @@ class RandomWalkerFlowSegmenter():
                 plt.xticks([], []); plt.yticks([], [])
                 plt.gca().set_axis_off()
                 plt.margins(0,0)
-                
+
                 # ============
                 # save and close the figure
                 # ============

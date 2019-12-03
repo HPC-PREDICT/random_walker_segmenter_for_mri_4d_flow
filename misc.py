@@ -110,10 +110,10 @@ def create_separated_arrays(parec_data):
 # ==========================================
 # loads the numpy array saved from the dicom files of the Freiburg dataset
 # ==========================================
-def load_npy_data(subject):
-    
-    img_path = os.path.join(os.getcwd(), '../../data/freiburg/')
-    
+def load_npy_data(freiburg_mri_path, subject):
+
+    img_path = os.path.realpath(freiburg_mri_path)
+
     npy_files_list = []
     
     for _, _, file_names in os.walk(img_path):
@@ -124,7 +124,7 @@ def load_npy_data(subject):
                 npy_files_list.append(file)
                 
     # use passed subject numer to index into files list          
-    path = img_path + '{}'.format(npy_files_list[subject])
+    path = img_path + '/{}'.format(npy_files_list[subject])
     array = np.load(path)
     
     return array
