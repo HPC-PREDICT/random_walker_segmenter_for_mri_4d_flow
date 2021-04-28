@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Apr  8 12:44:59 2019
+
+@author: nblon
+"""
+
 """
 Random walker segmentation algorithm
 from *Random walks for image segmentation*, Leo Grady, IEEE Trans
@@ -6,21 +13,18 @@ Installing pyamg and using the 'cg_mg' mode of random_walker improves
 significantly the performance.
 """
 
-# ==========================================
-# ==========================================
 import numpy as np
 from scipy import sparse, ndimage as ndi
 from skimage._shared.utils import warn
-import misc
+import utils
 
-# ==========================================
+
 # executive summary for next code block: try to import umfpack from
 # scipy, but make sure not to raise a fuss if it fails since it's only
 # needed to speed up a few cases.
 # See discussions at:
 # https://groups.google.com/d/msg/scikit-image/FrM5IGP6wh4/1hp-FtVZmfcJ
 # http://stackoverflow.com/questions/13977970/ignore-exceptions-printed-to-stderr-in-del/13977992?noredirect=1#comment28386412_13977992
-# ==========================================
 try:
     from scipy.sparse.linalg.dsolve import umfpack
     old_del = umfpack.UmfpackContext.__del__
@@ -44,14 +48,11 @@ from scipy.sparse.linalg import cg
 from skimage.util import img_as_float
 from skimage.filters import rank_order
 
-# ==========================================
 #-----------Laplacian--------------------
-# ==========================================
-def _make_graph_edges_4d(n_x,
-                         n_y,
-                         n_z,
-                         n_t):
-    """Returns a list of edges for a 4D image.
+
+
+def _make_graph_edges_3d(n_x, n_y, n_z):
+    """Returns a list of edges for a 3D image.
     Parameters
     ----------
     n_x: integer
@@ -60,105 +61,88 @@ def _make_graph_edges_4d(n_x,
         The size of the grid in the y direction
     n_z: integer
         The size of the grid in the z direction
-    n_t: integer
-        The size of the grid in the t direction
     Returns
     -------
     edges : (2, N) ndarray
         with the total number of edges::
-            N = (nt - 1) * nx * ny * nz +
-                nt * nx * ny * (nz - 1) +
-                nt * nx * (ny - 1) * nz +
-                nt * (nx - 1) * ny * nz
+            N = n_x * n_y * (nz - 1) +
+                n_x * (n_y - 1) * nz +
+                (n_x - 1) * n_y * nz
         Graph edges with each column describing a node-id pair.
     """
-    vertices = np.arange(n_x * n_y * n_z * n_t).reshape((n_x, n_y, n_z, n_t))
-    
+    vertices = np.arange(n_x * n_y * n_z).reshape((n_x, n_y, n_z))
     edges_deep = np.vstack((vertices[:, :, :-1].ravel(),
                             vertices[:, :, 1:].ravel()))
-    
     edges_right = np.vstack((vertices[:, :-1].ravel(),
                              vertices[:, 1:].ravel()))
-    
-    edges_down = np.vstack((vertices[:-1].ravel(),
-                            vertices[1:].ravel()))
-    
-    edges_time = np.vstack((vertices[:,:,:,:-1].ravel(),
-                            vertices[:,:,:,1:].ravel()))
-    
-    edges = np.hstack((edges_deep, edges_right, edges_down, edges_time))
-    
+    edges_down = np.vstack((vertices[:-1].ravel(), vertices[1:].ravel()))
+    edges = np.hstack((edges_deep, edges_right, edges_down))
+#    a, b = np.unique(edges,return_counts=True)
+#    k ,j = np.unique(b,return_counts=True)
+#    print(k)
+#    print(j)
     return edges
 
-# ==========================================
-# ==========================================
-def _compute_weights_4d(data,
-                        spacing,
-                        eps=1e-6,
-                        alpha=0.3,
-                        beta=0.3,
-                        gamma=0.4,
-                        a=130.0,
-                        b=10.0,
-                        c=800.0):
 
-    intensity_weights = _compute_intensity_weight_4d(data, spacing, eps, a)
-    
-    magnitude_weights = _compute_magnitude_weight_4d(data, spacing, eps, b)
-    
-    directional_weights = _compute_directional_weight_4d(data, spacing, eps, c)
+def _compute_weights_3d(data, spacing, eps=1.e-6,alpha=0.3, beta =0.3, gamma=0.4, a=130.0, b=10.0, c=800.0):
+
+    intensity_weights = _compute_intensity_weight_3d(data, spacing, eps, a)
+    magnitude_weights = _compute_magnitude_weight_3d(data, spacing, eps, b)
+    directional_weights = _compute_directional_weight_3d(data, spacing, eps, c)
     
     weights = alpha*intensity_weights + beta*magnitude_weights + gamma*directional_weights
     
+#    weights = directional_weights
+#    weights = magnitude_weights
+#    weights = intensity_weights
+    
+#    print(np.amax(intensity_weights))
+#    print(np.amin(intensity_weights))
+#    print(np.amax(magnitude_weights))
+#    print(np.amin(magnitude_weights))
+#    print(np.amax(directional_weights))
+#    print(np.amin(directional_weights))
+    
     return weights
 
-# ==========================================
-# split the calculation of the exponentials of the intensity, velocity magnitude and velocity direction part
-# calculate intensity part here
-# ==========================================
-def _compute_intensity_weight_4d(data,
-                                 spacing,
-                                 eps=1e-6,
-                                 a=130.0):
-    
+def _compute_intensity_weight_3d(data, spacing,eps=1.e-6, a=130.0):
+    #split the calculation of the exponentials of the intensity, velocity magnitude and velocity direction part
+    #calculate intensity part here
     delta_I_sq = 0    
-    delta_I_sq = _compute_delta_I_4d(data[...,0], spacing, a)
+    delta_I_sq = _compute_delta_I_3d(data[...,0], spacing) ** 2
+#    print(delta_I_sq)
+#    plt.hist(gradients.ravel(),bins=100)
+#    plt.show()
+    delta_I_sq *= a/data[...,0].std()
     intensity_weights = np.exp(- delta_I_sq)
     intensity_weights += eps
-    
     return intensity_weights
 
-# ==========================================
-# split the calculation of the exponentials of the intensity, velocity magnitude and velocity direction part
-# calculate the velocity magnitude part here
-# ==========================================
-def _compute_magnitude_weight_4d(data,
-                                 spacing,
-                                 eps=1e-6,
-                                 b=10.0):
+def _compute_magnitude_weight_3d(data, spacing,eps=1.e-6, b=10.0):
+    #split the calculation of the exponentials of the intensity, velocity magnitude and velocity direction part
+    #calculate intensity part here
     
     B_data = np.zeros(data.shape)
     B_data_1 = np.zeros(data.shape)
 
     B_coords_1 = np.nonzero(data[...,0]>0.1)
-    B_coords_1 = np.nonzero(data[...,0])
     B_data_1[B_coords_1] = True
     B_data = B_data_1*data
+#    B_data = data
     
     delta_v = 0
-    delta_v = _compute_eucl_dist_4d(B_data, spacing, b)
-    
+    delta_v = _compute_eucl_dist_3d(B_data, spacing)
+    delta_v *= b/data[...,1:].std()
+#    print('Delta V: max=' +str(np.amax(delta_v)) + ' min=' + str(np.amin(delta_v)))
+#    plt.hist(gradients.ravel(),bins=100)
+#    plt.show()
     magnitude_weights = np.exp(- delta_v)
     magnitude_weights += eps
-    
     return magnitude_weights
 
-# ==========================================
-# split the calculation of the exponentials of the intensity, velocity magnitude and velocity direction part
-# calculate the velocity direction part here
-# ==========================================
-def _compute_directional_weight_4d(data, spacing,eps=1.e-6, c=800.0):
-
+def _compute_directional_weight_3d(data, spacing,eps=1.e-6, c=800.0):
+    #split the calculation of the exponentials of the intensity, velocity magnitude and velocity direction part
+    #calculate intensity part here
     dot_product = 0
     
     B_data = np.zeros(data.shape)
@@ -168,112 +152,68 @@ def _compute_directional_weight_4d(data, spacing,eps=1.e-6, c=800.0):
     B_data_1[B_coords_1] = True
     B_data = B_data_1*data
     
-    dot_product = _compute_dotproduct_4d(B_data, spacing, c)    
-    
+    dot_product = _compute_dotproduct_3d(B_data, spacing)
+    dot_product = -(dot_product-1)
+    dot_product *= c
+
     directional_weights = np.exp(-dot_product)
     directional_weights += eps
-    
     return directional_weights
     
-# ==========================================
-# ==========================================
-def _compute_delta_I_4d(data,
-                        spacing,
-                        a):
-    
+def _compute_delta_I_3d(data, spacing):
     gr_deep = np.abs(data[:, :, :-1] - data[:, :, 1:]).ravel() / spacing[2]
-    # print(gr_deep)
-    
+#    print(gr_deep)
     gr_right = np.abs(data[:, :-1] - data[:, 1:]).ravel() / spacing[1]
-    # print(gr_right)
-    
+#    print(gr_right)
     gr_down = np.abs(data[:-1] - data[1:]).ravel() / spacing[0]
-    # print(gr_down)
-    
-    gr_time = np.abs(data[:,:,:,:-1]-data[:,:,:,1:]).ravel() / spacing[3]
-    # print(data.shape)
-      
-    gr_deep = gr_deep**2
-    gr_down = gr_down**2
-    gr_right = gr_right**2
-    gr_time = gr_time**2
-    
-    sigma = data[...,0].std()
-    gr_deep *= a/sigma
-    gr_down *= a/sigma
-    gr_right *= a/sigma
-    gr_time *= a/sigma
-    
-    return np.r_[gr_deep, gr_down, gr_right, gr_time]
+#    print(gr_down)
+#    print(data.shape)
+    return np.r_[gr_deep, gr_right, gr_down]
 
-# ==========================================
-# compute the euclidean distances between all adjacent points
-# ==========================================
-def _compute_eucl_dist_4d(data,
-                          spacing,
-                          b):
-    
-    magn_data = np.sqrt(np.square(data[:,:,:,:,1]) + np.square(data[:,:,:,:,2]) + np.square(data[:,:,:,:,3]))
-    
-    dist_deep = np.abs(magn_data[:, :, :-1] - magn_data[:, :, 1:]).ravel() / spacing[2]
-    dist_right = np.abs(magn_data[:, :-1] - magn_data[:, 1:]).ravel() / spacing[1]
-    dist_down = np.abs(magn_data[:-1] - magn_data[1:]).ravel() / spacing[0]
-    dist_time = np.abs(magn_data[:,:,:,:-1]-magn_data[:,:,:,1:]).ravel() / spacing[3]
-    
-    sigma = data[...,1:].std()
-    dist_deep *= b/sigma
-    dist_right *=b/sigma
-    dist_down *= b/sigma
-    dist_time *= b/sigma
-    
-    return np.r_[dist_deep,dist_right,dist_down,dist_time]
 
-# ==========================================
-# compute the dot product and normalize data to obtain the cos of the enclosed angle which constrains the data to [-1,1]
-# ==========================================
-def _compute_dotproduct_4d(data,
-                           spacing,
-                           c):
+def _compute_eucl_dist_3d(data,spacing):
+    #compute the euclidean distances between all adjacent points
+    #compute distance between adjacent points in v_x array
+    dist_x_deep = np.abs(data[:, :, :-1, 1] - data[:, :, 1:, 1]).ravel() / spacing[2]
+    dist_x_right = np.abs(data[:, :-1, :, 1] - data[:, 1:, :, 1]).ravel() / spacing[1]
+    dist_x_down = np.abs(data[:-1, :, :, 1] - data[1:, :, :, 1]).ravel() / spacing[0]
+    #compute distance between adjacent points in v_y array
+    dist_y_deep = np.abs(data[:, :, :-1, 2] - data[:, :, 1:, 2]).ravel() / spacing[2]
+    dist_y_right = np.abs(data[:, :-1, :, 2] - data[:, 1:, :, 2]).ravel() / spacing[1]
+    dist_y_down = np.abs(data[:-1, :, :, 2] - data[1:, :, :, 2]).ravel() / spacing[0]
+    #compute distance between adjacent points in v_z array
+    dist_z_deep = np.abs(data[:, :, :-1, 3] - data[:, :, 1:, 3]).ravel() / spacing[2]
+    dist_z_right = np.abs(data[:, :-1, :, 3] - data[:, 1:, :, 3]).ravel() / spacing[1]
+    dist_z_down = np.abs(data[:-1, :, :, 3] - data[1:, :, :, 3]).ravel() / spacing[0]
+    #combine arrays to form list of all distances of 3D vectors
+    dist_deep = np.sqrt(np.square(dist_x_deep) + np.square(dist_y_deep) + np.square(dist_z_deep))
+    dist_right = np.sqrt(np.square(dist_x_right) + np.square(dist_y_right) + np.square(dist_z_right))
+    dist_down = np.sqrt(np.square(dist_x_down) + np.square(dist_y_down) + np.square(dist_z_down))
     
-    #compute dot product
-    dot_deep = (data[:, :, :-1, :, 1]*data[:, :, 1:, :, 1]+data[:, :, :-1, :, 2]*data[:, :, 1:, :, 2]+data[:, :, :-1, :, 3]*data[:, :, 1:, :, 3]).ravel() / spacing[2]
-    dot_right= (data[:, :-1, :, :, 1]*data[:, 1:, :, :, 1]+data[:, :-1, :, :, 2]*data[:, 1:, :, :, 2]+data[:, :-1, :, :, 3]*data[:, 1:, :, :, 3]).ravel() / spacing[1]
-    dot_down = (data[:-1, :, :, :, 1]*data[1:, :, :, :, 1]+data[:-1, :, :, :, 2]*data[1:, :, :, :, 2]+data[:-1, :, :, :, 3]*data[1:, :, :, :, 3]).ravel() / spacing[0]
-    dot_time = (data[:, :, :, :-1, 1]*data[:, :, :, 1:, 1]+data[:, :, :, :-1, 2]*data[1, :, :, 1:, 2]+data[:, :, :, :-1, 3]*data[:, :, :, 1:, 3]).ravel() / spacing[3]
+    return np.r_[dist_deep,dist_right,dist_down]
+
+def _compute_dotproduct_3d(data, spacing):
+    #compute the dot product and normalize data to obtain the cos of the enclosed angle which constrains the data to [-1,1]
+    dot_deep = (data[:,:,:-1,1]*data[:,:,1:,1]+data[:,:,:-1,2]*data[:,:,1:,2]+data[:,:,:-1,3]*data[:,:,1:,3]).ravel() / spacing[2]
+    dot_right = (data[:,:-1,:,1]*data[:,1:,:,1]+data[:,:-1,:,2]*data[:,1:,:,2]+data[:,:-1,:,3]*data[:,1:,:,3]).ravel() / spacing[1]
+    dot_down = (data[:-1,:,:,1]*data[1:,:,:,1]+data[:-1,:,:,2]*data[1:,:,:,2]+data[:-1,:,:,3]*data[1:,:,:,3]).ravel() / spacing[0]
     
-    #calculate the magnitude
-    dot_deep_magn = ((misc.norm(data[:, :, :-1, :, 1],data[:, :, :-1, :, 2],data[:, :, :-1, :, 3])).ravel()*(misc.norm(data[:, :, 1:, :, 1],data[:, :, 1:, :, 2],data[:, :, 1:, :, 3])).ravel())
-    dot_right_magn= ((misc.norm(data[:, :-1, :, :, 1],data[:, :-1, :, :, 2],data[:, :-1, :, :, 3])).ravel()*(misc.norm(data[:, 1:, :, :, 1],data[:, 1:, :, :, 2],data[:, 1:, :, :, 3])).ravel())
-    dot_down_magn = ((misc.norm(data[:-1, :, :, :, 1],data[:-1, :, :, :, 2],data[:-1, :, :, :, 3])).ravel()*(misc.norm(data[1:, :, :, :, 1],data[1:, :, :, :, 2],data[1:, :, :, :, 3])).ravel())
-    dot_time_magn = ((misc.norm(data[:, :, :, :-1, 1],data[:, :, :, :-1, 2],data[:, :, :, :-1, 3])).ravel()*(misc.norm(data[:, :, :, 1:, 1],data[:, :, :, 1:, 2],data[:, :, :, 1:, 3])).ravel())
+    #normalize the dot products
+    dot_deep_magn = ((utils.norm(data[:,:,:-1,1],data[:,:,:-1,2],data[:,:,:-1,3])).ravel()*(utils.norm(data[:,:,1:,1],data[:,:,1:,2],data[:,:,1:,3])).ravel())
+    dot_deep_magn += 1e-6
+    dot_right_magn = ((utils.norm(data[:,:-1,:,1],data[:,:-1,:,2],data[:,:-1,:,3])).ravel()*(utils.norm(data[:,1:,:,1],data[:,1:,:,2],data[:,1:,:,3])).ravel())
+    dot_right_magn += 1e-6
+    dot_down_magn = ((utils.norm(data[:-1,:,:,1],data[:-1,:,:,2],data[:-1,:,:,3])).ravel()*(utils.norm(data[1:,:,:,1],data[1:,:,:,2],data[1:,:,:,3])).ravel())
+    dot_down_magn += 1e-6
     
-    # add residual to avoid dividing by zero
-    eps = 1e-6
-    dot_deep_magn += eps
-    dot_right_magn+= eps
-    dot_down_magn += eps
-    dot_time_magn += eps
-    
-    # normalize the dot products
     dot_deep_norm = dot_deep/dot_deep_magn
     dot_right_norm = dot_right/dot_right_magn
     dot_down_norm = dot_down/dot_down_magn
-    dot_time_norm = dot_time/dot_time_magn
     
-    dot_deep_norm = -(dot_deep_norm-1)
-    dot_right_norm = -(dot_right_norm-1)
-    dot_down_norm = -(dot_down_norm-1)
-    dot_time_norm = -(dot_time_norm-1)
-    
-    dot_deep_norm *= c
-    dot_right_norm*= c
-    dot_down_norm *= c
-    dot_time_norm *= c
-    
-    return np.r_[dot_deep_norm, dot_right_norm, dot_down_norm, dot_time_norm]
+    return np.r_[dot_deep_norm, dot_right_norm, dot_down_norm]
 
-# ==========================================
-# ==========================================
+
+
 def _make_laplacian_sparse(edges, weights):
     """
     Sparse implementation
@@ -292,8 +232,7 @@ def _make_laplacian_sparse(edges, weights):
         shape=(pixel_nb, pixel_nb))
     return lap.tocsr()
 
-# ==========================================
-# ==========================================
+
 def _clean_labels_ar(X, labels, copy=False):
     X = X.astype(labels.dtype)
     if copy:
@@ -302,8 +241,7 @@ def _clean_labels_ar(X, labels, copy=False):
     labels[labels == 0] = X
     return labels
 
-# ==========================================
-# ==========================================
+
 def _buildAB(lap_sparse, labels):
     """
     Build the matrix A and rhs B of the linear system to solve.
@@ -325,67 +263,43 @@ def _buildAB(lap_sparse, labels):
         rhs.append(B * fs)
     return lap_sparse, rhs
 
-# ==========================================
-# ==========================================
+
 def _mask_edges_weights(edges, weights, mask):
     """
     Remove edges of the graph connected to masked nodes, as well as
     corresponding weights of the edges.
     """
-    mask0 = np.hstack((mask[:, :, :-1].ravel(),
-                       mask[:, :-1].ravel(),
+    mask0 = np.hstack((mask[:, :, :-1].ravel(), mask[:, :-1].ravel(),
                        mask[:-1].ravel()))
-    
-    mask1 = np.hstack((mask[:, :, 1:].ravel(),
-                       mask[:, 1:].ravel(),
+    mask1 = np.hstack((mask[:, :, 1:].ravel(), mask[:, 1:].ravel(),
                        mask[1:].ravel()))
-    
     ind_mask = np.logical_and(mask0, mask1)
     edges, weights = edges[:, ind_mask], weights[ind_mask]
     max_node_index = edges.max()
-    
     # Reassign edges labels to 0, 1, ... edges_number - 1
     order = np.searchsorted(np.unique(edges.ravel()),
                             np.arange(max_node_index + 1))
-    
     edges = order[edges.astype(np.int64)]
-    
     return edges, weights
 
-# ==========================================
-# ==========================================
-def _build_laplacian(data, spacing, mask=None, alpha=0.3, beta=0.3, gamma=0.4, a=130.0, b=10.0, c=800.0):
-    
-    l_x, l_y, l_z, l_t = tuple(data.shape[i] for i in range(4))
-    edges = _make_graph_edges_4d(l_x, l_y, l_z, l_t)
-    weights = _compute_weights_4d(data, spacing, eps=1.e-10, alpha=alpha, beta=beta, gamma=gamma, a=a, b=b, c=c)
-    
+
+def _build_laplacian(data, spacing, mask=None,
+                     alpha=0.3, beta =0.3, gamma=0.4, a=130.0, b=10.0, c=800.0):
+    l_x, l_y, l_z = tuple(data.shape[i] for i in range(3))
+    edges = _make_graph_edges_3d(l_x, l_y, l_z)
+    weights = _compute_weights_3d(data, spacing, eps=1.e-10,alpha=alpha, beta=beta, gamma=gamma, a=a, b=b, c=c)
     if mask is not None:
         edges, weights = _mask_edges_weights(edges, weights, mask)
-    
     lap = _make_laplacian_sparse(edges, weights)
-    
     del edges, weights
-    
     return lap
 
 
-# ==========================================
 #----------- Random walker algorithm --------------------------------
-# ==========================================
-def random_walker(data,
-                  labels,
-                  mode='bf',
-                  tol=1.e-3,
-                  copy=True,
-                  return_full_prob=False,
-                  spacing=None,
-                  alpha=0.3,
-                  beta=0.3,
-                  gamma=0.4,
-                  a=130.0,
-                  b=10.0,
-                  c=800.0):
+
+
+def random_walker(data, labels, mode='bf', tol=1.e-3, copy=True,
+                  return_full_prob=False, spacing=None, alpha=0.3, beta =0.3, gamma=0.4, a=130.0, b=10.0, c=800.0):
     """Random walker algorithm for segmentation from markers.
     Random walker algorithm is implemented for gray-level or multichannel
     images.
@@ -519,6 +433,14 @@ def random_walker(data,
         else:
             mode = 'bf'
 
+#    if UmfpackContext is None and mode == 'cg':
+#        warn('"cg" mode will be used, but it may be slower than '
+#             '"bf" because SciPy was built without UMFPACK. Consider'
+#             ' rebuilding SciPy with UMFPACK; this will greatly '
+#             'accelerate the conjugate gradient ("cg") solver. '
+#             'You may also install pyamg and run the random_walker '
+#             'function in "cg_mg" mode (see docstring).')
+
     if (labels != 0).all():
         warn('Random walker only segments unlabeled areas, where '
              'labels == 0. No zero valued areas in labels were '
@@ -538,16 +460,23 @@ def random_walker(data,
             out_labels = labels
         return out_labels
 
-
-    if data.ndim < 4:
-        raise ValueError('Dta must have 4 '
+    # This algorithm expects 4-D arrays of floats, where the first three
+    # dimensions are spatial and the final denotes channels. 2-D images have
+    # a singleton placeholder dimension added for the third spatial dimension,
+    # and single channel images likewise have a singleton added for channels.
+    # The following block ensures valid input and coerces it to the correct
+    # form.
+    if data.ndim < 3:
+        raise ValueError('Data must have 3 or 4 '
                          'dimensions.')
-    dims = data[...,0].shape  # To reshape final labeled result
+    dims = data[..., 0].shape  # To reshape final labeled result
     data = img_as_float(data)
+    if data.ndim == 3:  # 2D multispectral, needs singleton in 3rd axis
+        data = data[:, :, np.newaxis, :]
 
     # Spacing kwarg checks
     if spacing is None:
-        spacing = np.asarray((1.,) * 4)
+        spacing = np.asarray((1.,) * 3)
     elif len(spacing) == len(dims):
         if len(spacing) == 2:  # Need a dummy spacing for singleton 3rd dim
             spacing = np.r_[spacing, 1.]
@@ -587,46 +516,41 @@ def random_walker(data,
     # where X[i, j] is the probability that a marker of label i arrives
     # first at pixel j by anisotropic diffusion.
     if mode == 'cg':
-        X = _solve_cg(lap_sparse,
-                      B,
-                      tol=tol,
+        X = _solve_cg(lap_sparse, B, tol=tol,
                       return_full_prob=return_full_prob)
-        
     if mode == 'cg_mg':
         if not amg_loaded:
             warn("""pyamg (http://pyamg.org/)) is needed to use
                 this mode, but is not installed. The 'cg' mode will be used
                 instead.""")
-            X = _solve_cg(lap_sparse,
-                          B,
-                          tol=tol,
+            X = _solve_cg(lap_sparse, B, tol=tol,
                           return_full_prob=return_full_prob)
         else:
-            X = _solve_cg_mg(lap_sparse,
-                             B,
-                             tol=tol,
+            X = _solve_cg_mg(lap_sparse, B, tol=tol,
                              return_full_prob=return_full_prob)
     if mode == 'bf':
-        X = _solve_bf(lap_sparse,
-                      B,
+        X = _solve_bf(lap_sparse, B,
                       return_full_prob=return_full_prob)
 
     # Clean up results
     if return_full_prob:
         labels = labels.astype(np.float)
-        X = np.array([_clean_labels_ar(Xline, labels, copy=True).reshape(dims) for Xline in X])
-
+        X = np.array([_clean_labels_ar(Xline, labels, copy=True).reshape(dims)
+                      for Xline in X])
+#        print(X[0,93,118,6])
+#        print(labels[93,118,6])
         for i in range(1, int(labels.max()) + 1):
             mask_i = np.squeeze(labels == i)
             X[:, mask_i] = 0
             X[i - 1, mask_i] = 1
-
+#        print(X[0,93,118,6])
+#        print(labels[93,118,6])
+#        print(labels)
     else:
         X = _clean_labels_ar(X + 1, labels).reshape(dims)
     return X
 
-# ==========================================
-# ==========================================
+
 def _solve_bf(lap_sparse, B, return_full_prob=False):
     """
     solves lap_sparse X_i = B_i for each phase i. An LU decomposition
@@ -641,8 +565,7 @@ def _solve_bf(lap_sparse, B, return_full_prob=False):
         X = np.argmax(X, axis=0)
     return X
 
-# ==========================================
-# ==========================================
+
 def _solve_cg(lap_sparse, B, tol, return_full_prob=False):
     """
     solves lap_sparse X_i = B_i for each phase i, using the conjugate
@@ -659,8 +582,7 @@ def _solve_cg(lap_sparse, B, tol, return_full_prob=False):
         X = np.argmax(X, axis=0)
     return X
 
-# ==========================================
-# ==========================================
+
 def _solve_cg_mg(lap_sparse, B, tol, return_full_prob=False):
     """
     solves lap_sparse X_i = B_i for each phase i, using the conjugate
